@@ -1,13 +1,14 @@
-"""Email new English-language jobs from watchlist.json companies. Run after scraper.py.
+"""Open a GitHub issue for new English-language jobs from watchlist.json companies. Run after scraper.py.
 
-Needs env vars SMTP_USER, SMTP_PASSWORD (Gmail app password) and EMAIL_TO.
+GitHub emails the repo owner about the issue. Needs env vars GITHUB_TOKEN and GITHUB_REPOSITORY
+(set by GitHub Actions) and NOTIFY (GitHub username to @mention).
 Run: .venv/bin/python watchdog.py
 """
 import json
 import os
-import smtplib
 import sqlite3
-from email.message import EmailMessage
+
+import httpx
 
 DB = "jobs.db"
 
@@ -25,20 +26,23 @@ def main():
         print("watchdog: no new watched jobs")
         return
 
-    msg = EmailMessage()
-    msg["Subject"] = f"{len(matches)} new watched job(s): " + ", ".join(sorted({r[2] for r in matches}))
-    msg["From"] = os.environ["SMTP_USER"]
-    msg["To"] = os.environ["EMAIL_TO"]
-    msg.set_content("\n\n".join(
-        f"{title}\n{company} · {location}\nApply: {url.rstrip('/')}/apply" for _, title, company, location, url in matches
-    ))
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-        smtp.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
-        smtp.send_message(msg)
+    body = "\n".join(
+        f"- [ ] **{title}** · {company} · {location} — [apply]({url.rstrip('/')}/apply)"
+        for _, title, company, location, url in matches
+    )
+    r = httpx.post(
+        f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/issues",
+        headers={"Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}", "Accept": "application/vnd.github+json"},
+        json={
+            "title": f"{len(matches)} new watched job(s): " + ", ".join(sorted({r[2] for r in matches})),
+            "body": f"@{os.environ['NOTIFY']}\n\n{body}",
+        },
+    )
+    r.raise_for_status()
 
     con.executemany("INSERT INTO notified (id) VALUES (?)", [(r[0],) for r in matches])
     con.commit()
-    print(f"watchdog: emailed {len(matches)} job(s)")
+    print(f"watchdog: opened {r.json()['html_url']} for {len(matches)} job(s)")
 
 
 if __name__ == "__main__":
