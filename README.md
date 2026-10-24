@@ -13,9 +13,9 @@
 ```mermaid
 flowchart LR
     subgraph GH["GitHub Actions (cron 09:00 / 18:00 Berlin)"]
-        S[scraper.py] --> DB[(jobs.db)]
-        DB --> E[export_jobs.py] --> J[web/public/jobs.json]
-        DB --> W[watchdog.py]
+        S[watchdog/scraper.py] --> DB[(jobs.db)]
+        DB --> E[watchdog/export_jobs.py] --> J[web/public/jobs.json]
+        DB --> W[watchdog/watchdog.py]
     end
     SRC["Job sources<br/>BA · Arbeitnow · Greenhouse · Lever<br/>SmartRecruiters · Personio · Ashby · Fraunhofer"] --> S
     W -- new English jobs from watchlist --> I[GitHub issue] -- notification --> M[Your inbox]
@@ -27,9 +27,9 @@ flowchart LR
 
 | Part | File | Role |
 | --- | --- | --- |
-| Scraper | `scraper.py`, `companies.json` | Fetches jobs, keeps only Werkstudent/intern tech roles, removes duplicates, detects the language and stores the result in `jobs.db` (SQLite) |
-| Watchdog | `watchdog.py`, `watchlist.json` | Finds English jobs from watched companies that you haven't been notified about, opens an issue and records them in the `notified` table |
-| Export | `export_jobs.py` | Writes `jobs.db` to `web/public/jobs.json` for the dashboard |
+| Scraper | `watchdog/scraper.py`, `companies.json` | Fetches jobs, keeps only Werkstudent/intern tech roles, removes duplicates, detects the language and stores the result in `jobs.db` (SQLite) |
+| Watchdog | `watchdog/watchdog.py`, `watchlist.json` | Finds English jobs from watched companies that you haven't been notified about, opens an issue and records them in the `notified` table |
+| Export | `watchdog/export_jobs.py` | Writes `jobs.db` to `web/public/jobs.json` for the dashboard |
 | Scheduler | `.github/workflows/scrape.yml` | Runs the three scripts above and commits `jobs.db` and `jobs.json` |
 | Dashboard | `web/` (Next.js + TypeScript on Vercel) | A static page that reads `jobs.json`. `app/api/statuses` reads and writes `statuses.json` in this repo through the GitHub API, and writing needs the passphrase |
 
@@ -43,7 +43,7 @@ flowchart LR
   - `GITHUB_REPO`: `ktr-workers/Arbeit.watchdog`
   - `SAVE_PASSPHRASE`: the passphrase needed to save statuses
 
-To run the scraper locally, use `.venv/bin/python scraper.py`. To run the dashboard locally, use `cd web && npm run dev`.
+To run the scraper locally, use `.venv/bin/python -m watchdog.scraper` from the repo root. To run the dashboard locally, use `cd web && npm run dev`.
 
 ## Roadmap: towards an apply loop
 

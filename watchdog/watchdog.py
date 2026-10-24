@@ -1,8 +1,8 @@
-"""Open a GitHub issue for new English-language jobs from watchlist.json companies. Run after scraper.py.
+"""Open a GitHub issue for new English-language jobs from watchlist.json companies. Run after watchdog.scraper.
 
 GitHub emails the repo owner about the issue. Needs env vars GITHUB_TOKEN and GITHUB_REPOSITORY
 (set by GitHub Actions) and NOTIFY (GitHub username to @mention).
-Run: .venv/bin/python watchdog.py
+Run from the repo root: .venv/bin/python -m watchdog.watchdog
 """
 import json
 import os

@@ -1,4 +1,4 @@
-"""Export jobs.db to web/public/jobs.json for the Vercel dashboard. Run after scraper.py."""
+"""Export jobs.db to web/public/jobs.json for the Vercel dashboard. Run from the repo root after watchdog.scraper."""
 import json
 import sqlite3
 

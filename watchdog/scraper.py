@@ -2,7 +2,7 @@
 
 Sources: Bundesagentur für Arbeit Jobsuche API, Arbeitnow API, and company career pages
 (Greenhouse, Lever, SmartRecruiters, Personio, Ashby) listed in companies.json, and Fraunhofer.
-Run: .venv/bin/python scraper.py
+Run from the repo root: .venv/bin/python -m watchdog.scraper
 """
 import html
 import json
