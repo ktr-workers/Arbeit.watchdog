@@ -20,9 +20,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install httpx
-      - run: python -m watchdog.scraper
-      - run: python -m watchdog.export_jobs
-      - run: python -m watchdog.watchdog
+      - run: python -m watchdog.main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NOTIFY: ${{ github.repository_owner }}

@@ -1,13 +1,11 @@
-"""Collect Werkstudent / internship tech jobs in Germany into jobs.db.
+"""Job sources: Bundesagentur, Arbeitnow, company career pages (companies.json) and Fraunhofer.
 
-Sources: Bundesagentur für Arbeit Jobsuche API, Arbeitnow API, and company career pages
-(Greenhouse, Lever, SmartRecruiters, Personio, Ashby) listed in companies.json, and Fraunhofer.
-Run from the repo root: .venv/bin/python -m watchdog.scraper
+Each fetch_* returns a list of job dicts with id, title, company, location, remote, url, source, posted_at
+and optionally text (the job description).
 """
 import html
 import json
 import re
-import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 import xml.etree.ElementTree as ET
@@ -15,32 +13,7 @@ from datetime import date
 
 import httpx
 
-DB = "jobs.db"
-
-LEVEL = re.compile(
-    r"werkstudent|working student|praktik|intern\b|internship|praxissemester|hilfskraft|hiwi|studentische", re.I
-)
-TECH = re.compile(
-    r"software|developer|entwickler|softwareentwicklung|anwendungsentwicklung|engineer|informatik|computer science|programmier|"
-    r"backend|frontend|full.?stack|web|app\b|mobile app|mobile dev|python|java|c\+\+|\.net|"
-    r"\bai\b|\bki\b|künstliche intelligenz|machine learning|\bml\b|deep learning|llm|nlp|computer vision|"
-    r"data|daten|analytics|devops|cloud|\bit\b|\bit-|cyber|security|embedded",
-    re.I,
-)
-EXCLUDE = re.compile(
-    r"vertrieb|sales|marketing|einkauf|controlling|finance|buchhaltung|personal|\bhr\b|recruit|promoter|"
-    r"arbeitssicherheit|ausbildung|umschulung|human resources|lager|logistik(?!.*software)|"
-    r"legal|recht\b|datenschutz|privacy|compliance|financial",
-    re.I,
-)
-
-GERMANY = re.compile(
-    r"germany|deutschland|berlin|münchen|munich|hamburg|frankfurt|köln|cologne|stuttgart|düsseldorf|"
-    r"leipzig|dresden|hannover|nürnberg|nuremberg|karlsruhe|mannheim|heidelberg|bonn|essen|dortmund|bremen|"
-    r"potsdam|freiburg|aachen|darmstadt|ottobrunn|regensburg|ulm|augsburg|kiel|mainz|wiesbaden|münster|jena|"
-    r"erlangen|ingolstadt|braunschweig|wolfsburg",
-    re.I,
-)
+from .utils import GERMANY, strip_html
 
 BA_QUERIES = [
     "Werkstudent Software", "Werkstudent Informatik", "Werkstudent Data", "Werkstudent KI",
@@ -48,37 +21,6 @@ BA_QUERIES = [
     "Praktikum Software", "Praktikum Informatik", "Praktikum Data", "Praktikum KI",
     "Praktikum Machine Learning", "Praktikum IT", "Working Student", "Internship Software",
 ]
-
-
-DE_WORDS = set(
-    "und der die das den dem des mit für wir sie ihr ihre im ein eine einen zu zur zum von bei auf ist sind "
-    "werkstudent werkstudentin werkstudierende praktikum praktikant praktikantin pflichtpraktikum bereich "
-    "entwicklung abschlussarbeit kenntnisse erfahrung aufgaben deine dein unser unsere".split()
-)
-EN_WORDS = set(
-    "and the with for we you your our a an to of at on is are working student intern internship "
-    "experience skills responsibilities what who about".split()
-)
-
-
-def detect_lang(text):
-    words = re.findall(r"[a-zäöüß]+", text.lower())
-    de = sum(w in DE_WORDS for w in words)
-    en = sum(w in EN_WORDS for w in words)
-    return "de" if de > en else "en" if en > de else "unknown"
-
-
-def strip_html(text):
-    return re.sub(r"<[^>]+>", " ", html.unescape(text or ""))
-
-
-def is_relevant(title):
-    return bool(LEVEL.search(title) and TECH.search(title) and not EXCLUDE.search(title))
-
-
-def level_of(title):
-    student = r"werkstudent|working student|hilfskraft|hiwi|studentische"
-    return "Werkstudent" if re.search(student, title, re.I) else "Intern"
 
 
 def fetch_ba_query(client, query):
@@ -300,67 +242,3 @@ def fetch_fraunhofer_query(client, query):
 def fetch_fraunhofer(client, seen):
     with ThreadPoolExecutor(max_workers=4) as pool:
         return [job for jobs in pool.map(lambda q: fetch_fraunhofer_query(client, q), FRAUNHOFER_QUERIES) for job in jobs]
-
-
-def init_db(con):
-    con.execute(
-        """CREATE TABLE IF NOT EXISTS jobs (
-            id TEXT PRIMARY KEY, title TEXT, company TEXT, location TEXT, remote INTEGER,
-            url TEXT, source TEXT, level TEXT, posted_at TEXT, first_seen TEXT,
-            status TEXT DEFAULT 'new', dedupe_key TEXT
-        )"""
-    )
-    con.execute("CREATE TABLE IF NOT EXISTS seen (id TEXT PRIMARY KEY)")
-    if "lang" not in [row[1] for row in con.execute("PRAGMA table_info(jobs)")]:
-        con.execute("ALTER TABLE jobs ADD COLUMN lang TEXT")
-
-
-def dedupe_key(job):
-    norm = lambda s: re.sub(r"\(.*?\)|[^a-z0-9äöüß]+", " ", s.lower()).split()
-    return " ".join(norm(job["company"])[:2]) + "|" + " ".join(norm(job["title"]))
-
-
-def main():
-    con = sqlite3.connect(DB)
-    init_db(con)
-    known = {row[0] for row in con.execute("SELECT dedupe_key FROM jobs")}
-    seen = {row[0] for row in con.execute("SELECT id FROM seen")}
-    today = date.today().isoformat()
-    new = 0
-    with httpx.Client(timeout=30, headers={"User-Agent": "personal-job-search/0.1"}) as client, \
-            ThreadPoolExecutor() as pool:
-        futures = {fetch.__name__: pool.submit(fetch, client, seen) for fetch in (fetch_ba, fetch_arbeitnow, fetch_company_pages, fetch_fraunhofer)}
-        for name, future in futures.items():
-            try:
-                jobs = future.result()
-            except httpx.HTTPError as e:
-                print(f"{name} failed: {e}")
-                continue
-            con.executemany("INSERT OR IGNORE INTO seen (id) VALUES (?)", [(job["id"],) for job in jobs])
-            for job in jobs:
-                if not is_relevant(job["title"]):
-                    continue
-                # Fraunhofer titles don't reliably reflect the JD language.
-                lang = "unknown" if job["source"] == "Fraunhofer" else detect_lang(job["title"] + " " + job.get("text", ""))
-                con.execute("UPDATE jobs SET lang=? WHERE id=? AND lang IS NULL", (lang, job["id"]))
-                key = dedupe_key(job)
-                if key in known:
-                    continue
-                known.add(key)
-                con.execute(
-                    "INSERT OR IGNORE INTO jobs (id,title,company,location,remote,url,source,level,posted_at,first_seen,dedupe_key,lang)"
-                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (job["id"], job["title"], job["company"], job["location"], job["remote"], job["url"],
-                     job["source"], level_of(job["title"]), job["posted_at"], today, key, lang),
-                )
-                new += 1
-    # Jobs no longer listed (or not re-fetched) fall back to title-only detection.
-    for job_id, title in con.execute("SELECT id, title FROM jobs WHERE lang IS NULL").fetchall():
-        con.execute("UPDATE jobs SET lang=? WHERE id=?", (detect_lang(title), job_id))
-    con.commit()
-    total = con.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
-    print(f"{new} new jobs, {total} total in {DB}")
-
-
-if __name__ == "__main__":
-    main()

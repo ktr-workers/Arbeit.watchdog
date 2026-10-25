@@ -13,9 +13,9 @@
 ```mermaid
 flowchart LR
     subgraph GH["GitHub Actions (cron 09:00 / 18:00 Berlin)"]
-        S[watchdog/scraper.py] --> DB[(jobs.db)]
-        DB --> E[watchdog/export_jobs.py] --> J[web/public/jobs.json]
-        DB --> W[watchdog/watchdog.py]
+        S["main.py: scrape()<br/>sources.py · utils.py"] --> DB[(jobs.db)]
+        DB --> E["main.py: export()"] --> J[web/public/jobs.json]
+        DB --> W["main.py: notify()"]
     end
     SRC["Job sources<br/>BA · Arbeitnow · Greenhouse · Lever<br/>SmartRecruiters · Personio · Ashby · Fraunhofer"] --> S
     W -- new English jobs from watchlist --> I[GitHub issue] -- notification --> M[Your inbox]
@@ -27,10 +27,12 @@ flowchart LR
 
 | Part | File | Role |
 | --- | --- | --- |
-| Scraper | `watchdog/scraper.py`, `companies.json` | Fetches jobs, keeps only Werkstudent/intern tech roles, removes duplicates, detects the language and stores the result in `jobs.db` (SQLite) |
-| Watchdog | `watchdog/watchdog.py`, `watchlist.json` | Finds English jobs from watched companies that you haven't been notified about, opens an issue and records them in the `notified` table |
-| Export | `watchdog/export_jobs.py` | Writes `jobs.db` to `web/public/jobs.json` for the dashboard |
-| Scheduler | `.github/workflows/scrape.yml` | Runs the three scripts above and commits `jobs.db` and `jobs.json` |
+| Entry point | `watchdog/main.py` | Runs `scrape()`, `export()` and `notify()` in order. `scrape()` fetches jobs, keeps only Werkstudent/intern tech roles, removes duplicates, detects the language and stores the result in `jobs.db` (SQLite) |
+| Sources | `watchdog/sources.py`, `companies.json` | One fetcher per job site or ATS |
+| Watchdog | `notify()` in `main.py`, `watchlist.json` | Finds English jobs from watched companies that you haven't been notified about, opens an issue and records them in the `notified` table |
+| Export | `export()` in `main.py` | Writes `jobs.db` to `web/public/jobs.json` for the dashboard |
+| Helpers | `watchdog/utils.py` | Relevance, level and language filters, HTML stripping, dedupe keys |
+| Scheduler | `.github/workflows/scrape.yml` | Runs `python -m watchdog.main` and commits `jobs.db` and `jobs.json` |
 | Dashboard | `web/` (Next.js + TypeScript on Vercel) | A static page that reads `jobs.json`. `app/api/statuses` reads and writes `statuses.json` in this repo through the GitHub API, and writing needs the passphrase |
 
 **Why it's built this way:** the database is a file in git, so it needs no server and no database service. Statuses are kept in their own `statuses.json` so they never conflict with the bot's commits to `jobs.db`. Commits that only change statuses don't trigger a Vercel rebuild (`web/vercel.json`).
@@ -43,7 +45,7 @@ flowchart LR
   - `GITHUB_REPO`: `ktr-workers/Arbeit.watchdog`
   - `SAVE_PASSPHRASE`: the passphrase needed to save statuses
 
-To run the scraper locally, use `.venv/bin/python -m watchdog.scraper` from the repo root. To run the dashboard locally, use `cd web && npm run dev`.
+To run everything locally, use `.venv/bin/python -m watchdog.main` from the repo root. Notifying is skipped when `GITHUB_TOKEN` isn't set. To run the dashboard locally, use `cd web && npm run dev`.
 
 ## Roadmap: towards an apply loop
 
