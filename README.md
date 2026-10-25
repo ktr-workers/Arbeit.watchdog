@@ -4,7 +4,7 @@
 
 ## What it does
 
-- **Collects jobs.** Twice a day it gathers Werkstudent and internship tech jobs in Germany from the Bundesagentur für Arbeit, Arbeitnow, about 80 company career pages and Fraunhofer. It removes duplicates and detects whether each job description is German or English.
+- **Collects jobs.** Every 5 hours it gathers Werkstudent and internship tech jobs in Germany from the Bundesagentur für Arbeit, Arbeitnow, about 80 company career pages and Fraunhofer. It removes duplicates and detects whether each job description is German or English.
 - **Watches companies.** When a company in `data/watchlist.json` (for now only 1KOMMA5°) posts a new English-language job, it opens a GitHub issue. GitHub emails you about it, and each job in the issue has a direct apply link.
 - **Shows a dashboard.** You can search and filter every job, and mark each one as `interesting`, `applied`, `interview`, `rejected` or `hidden` from any device.
 
@@ -12,7 +12,7 @@
 
 ```mermaid
 flowchart LR
-    subgraph GH["GitHub Actions (cron 09:00 / 18:00 Berlin)"]
+    subgraph GH["GitHub Actions (cron every 5 hours)"]
         S["main.py: scrape()<br/>sources.py · utils.py"] --> DB[(jobs.db)]
         DB --> E["main.py: export()"] --> J[web/public/jobs.json]
         DB --> W["main.py: notify()"]

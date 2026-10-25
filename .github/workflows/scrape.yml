@@ -2,7 +2,7 @@ name: scrape
 
 on:
   schedule:
-    - cron: "0 8,17 * * *"  # 09:00 and 18:00 Berlin in winter (CET), 10:00 and 19:00 in summer
+    - cron: "0 */5 * * *"  # every 5 hours (00, 05, 10, 15, 20 UTC)
   workflow_dispatch:
 
 permissions:
