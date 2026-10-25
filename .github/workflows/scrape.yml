@@ -24,9 +24,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NOTIFY: ${{ github.repository_owner }}
-      - name: Commit jobs.db and jobs.json
+      - name: Commit data/jobs.db and jobs.json
         run: |
           git config user.name github-actions
           git config user.email github-actions@users.noreply.github.com
-          git add jobs.db web/public/jobs.json
+          git add data/jobs.db web/public/jobs.json
           git diff --cached --quiet || { git commit -m "Update jobs.db" && git pull --rebase && git push; }

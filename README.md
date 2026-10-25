@@ -5,7 +5,7 @@
 ## What it does
 
 - **Collects jobs.** Twice a day it gathers Werkstudent and internship tech jobs in Germany from the Bundesagentur für Arbeit, Arbeitnow, about 80 company career pages and Fraunhofer. It removes duplicates and detects whether each job description is German or English.
-- **Watches companies.** When a company in `watchlist.json` (for now only 1KOMMA5°) posts a new English-language job, it opens a GitHub issue. GitHub emails you about it, and each job in the issue has a direct apply link.
+- **Watches companies.** When a company in `data/watchlist.json` (for now only 1KOMMA5°) posts a new English-language job, it opens a GitHub issue. GitHub emails you about it, and each job in the issue has a direct apply link.
 - **Shows a dashboard.** You can search and filter every job, and mark each one as `interesting`, `applied`, `interview`, `rejected` or `hidden` from any device.
 
 ## Architecture
@@ -27,15 +27,17 @@ flowchart LR
 
 | Part | File | Role |
 | --- | --- | --- |
-| Entry point | `watchdog/main.py` | Runs `scrape()`, `export()` and `notify()` in order. `scrape()` fetches jobs, keeps only Werkstudent/intern tech roles, removes duplicates, detects the language and stores the result in `jobs.db` (SQLite) |
-| Sources | `watchdog/sources.py`, `companies.json` | One fetcher per job site or ATS |
-| Watchdog | `notify()` in `main.py`, `watchlist.json` | Finds English jobs from watched companies that you haven't been notified about, opens an issue and records them in the `notified` table |
-| Export | `export()` in `main.py` | Writes `jobs.db` to `web/public/jobs.json` for the dashboard |
+| Entry point | `watchdog/main.py` | Runs `scrape()`, `export()` and `notify()` in order. `scrape()` fetches jobs, keeps only Werkstudent/intern tech roles, removes duplicates, detects the language and stores the result in `data/jobs.db` (SQLite) |
+| Sources | `watchdog/sources.py`, `data/companies.json` | One fetcher per job site or ATS |
+| Watchdog | `notify()` in `main.py`, `data/watchlist.json` | Finds English jobs from watched companies that you haven't been notified about, opens an issue and records them in the `notified` table |
+| Export | `export()` in `main.py` | Writes `data/jobs.db` to `web/public/jobs.json` for the dashboard |
 | Helpers | `watchdog/utils.py` | Relevance, level and language filters, HTML stripping, dedupe keys |
-| Scheduler | `.github/workflows/scrape.yml` | Runs `python -m watchdog.main` and commits `jobs.db` and `jobs.json` |
-| Dashboard | `web/` (Next.js + TypeScript on Vercel) | A static page that reads `jobs.json`. `app/api/statuses` reads and writes `statuses.json` in this repo through the GitHub API, and writing needs the passphrase |
+| Scheduler | `.github/workflows/scrape.yml` | Runs `python -m watchdog.main` and commits `data/jobs.db` and `jobs.json` |
+| Dashboard | `web/` (Next.js + TypeScript on Vercel) | A static page that reads `jobs.json`. `app/api/statuses` reads and writes `data/statuses.json` in this repo through the GitHub API, and writing needs the passphrase |
 
-**Why it's built this way:** the database is a file in git, so it needs no server and no database service. Statuses are kept in their own `statuses.json` so they never conflict with the bot's commits to `jobs.db`. Commits that only change statuses don't trigger a Vercel rebuild (`web/vercel.json`).
+All data lives in `data/`: `jobs.db` (SQLite), `companies.json`, `watchlist.json` and `statuses.json`. The only exception is `web/public/jobs.json`, which has to sit in the dashboard's public folder so Vercel can serve it.
+
+**Why it's built this way:** the database is a file in git, so it needs no server and no database service. Statuses are kept in their own `data/statuses.json` so they never conflict with the bot's commits to `data/jobs.db`. Commits that only change statuses don't trigger a Vercel rebuild (`web/vercel.json`).
 
 ### Configuration
 

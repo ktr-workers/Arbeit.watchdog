@@ -1,4 +1,4 @@
-"""Job sources: Bundesagentur, Arbeitnow, company career pages (companies.json) and Fraunhofer.
+"""Job sources: Bundesagentur, Arbeitnow, company career pages (data/companies.json) and Fraunhofer.
 
 Each fetch_* returns a list of job dicts with id, title, company, location, remote, url, source, posted_at
 and optionally text (the job description).
@@ -139,7 +139,7 @@ def fetch_smartrecruiters(client, slug):
 
 
 def fetch_personio(client, slug):
-    # Personio feeds have no country field; companies in companies.json are assumed German.
+    # Personio feeds have no country field; companies in data/companies.json are assumed German.
     r = client.get(f"https://{slug}.jobs.personio.de/xml", follow_redirects=True)
     r.raise_for_status()
     jobs = []
@@ -192,7 +192,7 @@ ATS_FETCHERS = {
 
 
 def fetch_company_pages(client, seen):
-    with open("companies.json") as f:
+    with open("data/companies.json") as f:
         companies = json.load(f)
 
     def fetch_one(ats, slug):

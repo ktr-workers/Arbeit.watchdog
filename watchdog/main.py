@@ -1,4 +1,4 @@
-"""Scrape jobs into jobs.db, export web/public/jobs.json, and open a GitHub issue for new watched jobs.
+"""Scrape jobs into data/jobs.db, export web/public/jobs.json, and open a GitHub issue for new watched jobs.
 
 Notifying needs env vars GITHUB_TOKEN and GITHUB_REPOSITORY (set by GitHub Actions) and NOTIFY
 (GitHub username to @mention); it is skipped when GITHUB_TOKEN is unset, e.g. on local runs.
@@ -15,7 +15,7 @@ import httpx
 from .sources import fetch_arbeitnow, fetch_ba, fetch_company_pages, fetch_fraunhofer
 from .utils import dedupe_key, detect_lang, is_relevant, level_of
 
-DB = "jobs.db"
+DB = "data/jobs.db"
 
 
 def init_db(con):
@@ -84,11 +84,11 @@ def export(con):
 
 
 def notify(con):
-    """Open a GitHub issue for new English-language jobs from watchlist.json companies."""
+    """Open a GitHub issue for new English-language jobs from data/watchlist.json companies."""
     if not os.environ.get("GITHUB_TOKEN"):
         print("watchdog: GITHUB_TOKEN not set, skipping notification")
         return
-    with open("watchlist.json") as f:
+    with open("data/watchlist.json") as f:
         prefixes = [f"{ats}:{slug}:" for ats, slugs in json.load(f).items() for slug in slugs]
     con.execute("CREATE TABLE IF NOT EXISTS notified (id TEXT PRIMARY KEY)")
     rows = con.execute(

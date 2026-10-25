@@ -1,8 +1,8 @@
-// Statuses live in statuses.json at the repo root, read and written through the GitHub contents API.
+// Statuses live in data/statuses.json, read and written through the GitHub contents API.
 // Env: GITHUB_TOKEN (contents read/write on the repo), GITHUB_REPO (owner/name), SAVE_PASSPHRASE.
 export const dynamic = "force-dynamic";
 
-const url = () => `https://api.github.com/repos/${process.env.GITHUB_REPO}/contents/statuses.json`;
+const url = () => `https://api.github.com/repos/${process.env.GITHUB_REPO}/contents/data/statuses.json`;
 const headers = () => ({
   Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
   Accept: "application/vnd.github+json",
