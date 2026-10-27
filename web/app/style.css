@@ -19,7 +19,8 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
 main { padding: 16px; max-width: 1400px; margin: 0 auto; }
-h1 { font-size: 20px; margin: 0 0 12px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.note { color: var(--muted); margin: 0 0 12px; }
 a { color: var(--accent); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 12px; background: var(--panel); border-radius: 8px; }
 .filters fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 8px; align-items: center; }

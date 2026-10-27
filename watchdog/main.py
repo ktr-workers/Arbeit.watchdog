@@ -27,12 +27,13 @@ def init_db(con):
         )"""
     )
     con.execute("CREATE TABLE IF NOT EXISTS seen (id TEXT PRIMARY KEY)")
+    con.execute("CREATE TABLE IF NOT EXISTS pruned (dedupe_key TEXT PRIMARY KEY)")
     if "lang" not in [row[1] for row in con.execute("PRAGMA table_info(jobs)")]:
         con.execute("ALTER TABLE jobs ADD COLUMN lang TEXT")
 
 
 def scrape(con):
-    known = {row[0] for row in con.execute("SELECT dedupe_key FROM jobs")}
+    known = {row[0] for row in con.execute("SELECT dedupe_key FROM jobs UNION SELECT dedupe_key FROM pruned")}
     seen = {row[0] for row in con.execute("SELECT id FROM seen")}
     today = date.today().isoformat()
     new = 0
@@ -69,6 +70,15 @@ def scrape(con):
     con.commit()
     total = con.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
     print(f"{new} new jobs, {total} total in {DB}")
+
+
+def prune(con):
+    """Delete jobs posted (or, without a posting date, first seen) over a month ago; remember them so they aren't re-added."""
+    old = "COALESCE(NULLIF(posted_at, ''), first_seen) < date('now', '-1 month')"
+    con.execute(f"INSERT OR IGNORE INTO pruned (dedupe_key) SELECT dedupe_key FROM jobs WHERE {old}")
+    removed = con.execute(f"DELETE FROM jobs WHERE {old}").rowcount
+    con.commit()
+    print(f"pruned {removed} jobs older than a month")
 
 
 def export(con):
@@ -122,6 +132,7 @@ def main():
     con = sqlite3.connect(DB)
     init_db(con)
     scrape(con)
+    prune(con)
     export(con)
     notify(con)
 
