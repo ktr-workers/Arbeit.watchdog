@@ -10,6 +10,16 @@ const STATUSES = ["new", "interesting", "applied", "interview", "rejected", "hid
 const LEVELS = ["Werkstudent", "Intern"];
 const LANGS = ["de", "en", "unknown"];
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// "2026-10-27" -> "27th Oct 26"
+function formatDate(iso: string) {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  const suffix = d % 10 === 1 && d !== 11 ? "st" : d % 10 === 2 && d !== 12 ? "nd" : d % 10 === 3 && d !== 13 ? "rd" : "th";
+  return `${d}${suffix} ${MONTHS[m - 1]} ${String(y).slice(2)}`;
+}
+
 function toggle(list: string[], value: string) {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
@@ -81,6 +91,7 @@ export default function Page() {
   return (
     <main>
       <h1>Werkstudent &amp; Intern Tech Jobs (Germany)</h1>
+      <p className="note">Updated every 5 hours. Jobs posted more than a month ago are removed automatically.</p>
       <div className="filters">
         <input placeholder="Search title / company" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         <input placeholder="City contains" value={city} onChange={(e) => { setCity(e.target.value); setPage(1); }} />
@@ -102,16 +113,11 @@ export default function Page() {
       <div className="table">
         <table>
           <thead>
-            <tr><th>Status</th><th>Title</th><th>Company</th><th>Location</th><th>Level</th><th>Lang</th><th>Remote</th><th>Source</th><th>Posted</th></tr>
+            <tr><th>Title</th><th>Company</th><th>Location</th><th>Level</th><th>Lang</th><th>Remote</th><th>Source</th><th>Posted</th></tr>
           </thead>
           <tbody>
             {rows.map((j) => (
               <tr key={j.id}>
-                <td>
-                  <select value={statusOf(j)} onChange={(e) => save(j.id, e.target.value)}>
-                    {STATUSES.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                </td>
                 <td><a href={j.url} target="_blank" rel="noreferrer">{j.title}</a></td>
                 <td>{j.company}</td>
                 <td>{j.location}</td>
@@ -119,7 +125,7 @@ export default function Page() {
                 <td>{j.lang}</td>
                 <td>{j.remote ? "✓" : ""}</td>
                 <td>{j.source}</td>
-                <td>{j.posted_at}</td>
+                <td>{formatDate(j.posted_at)}</td>
               </tr>
             ))}
           </tbody>
